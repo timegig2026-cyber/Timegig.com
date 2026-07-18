@@ -584,16 +584,11 @@ export default function App() {
     const payment = pendingPayments.find(p => p.id === id);
     if (!payment) return;
     
-    const isOwnPayment = !payment.userId || (user && payment.userId === user.id);
+    const isOwnPayment = user && payment.userId === user.id;
     
     if (isOwnPayment) {
-      setCoinBalance(prev => prev + payment.coins);
-      setNormalTopupBalance(prev => prev + payment.priceRand);
-      
-      if (payment.priceRand === 20 && !isAgent) {
-        setIsAgent(true);
-        setReferralBalance(prev => prev + 100);
-      }
+      alert("You cannot approve your own payment documents.");
+      return;
     }
     
     if (supabase) {
@@ -1373,6 +1368,7 @@ export default function App() {
                         payment={p}
                         onApprove={handleApprove}
                         onViewProof={() => setViewingDocument(p)}
+                        canApprove={false}
                       />
                     ))}
                 </div>
@@ -2607,9 +2603,14 @@ export default function App() {
                            </button>
                            <button 
                               onClick={() => handleApprove(payment.id)}
-                              className="px-4 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-1"
+                              disabled={user && payment.userId === user.id}
+                              className={`px-4 py-1.5 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-1 ${
+                                (user && payment.userId === user.id)
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-black text-white hover:bg-gray-800'
+                              }`}
                            >
-                             Approve
+                             {user && payment.userId === user.id ? 'Own Payment' : 'Approve'}
                            </button>
                          </div>
                       </div>
