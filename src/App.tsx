@@ -706,7 +706,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 relative overflow-x-hidden">
+    <div className="flex flex-col h-[100dvh] bg-gray-50 relative overflow-x-hidden">
       {/* Top Menu Bar */}
       {view !== 'chat' && view !== 'signup' && view !== 'login' && (
         <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0" id="top-menu">
@@ -720,19 +720,21 @@ export default function App() {
           
           {/* Features at the top */}
           <div className="flex items-center space-x-2">
-            <button 
-              className="flex items-center p-2 text-black hover:bg-gray-100 rounded-full transition-colors focus:outline-none"
-              aria-label="Admin"
-              id="btn-admin-top"
-              onClick={() => {
-                setView('admin');
-                setActiveBottom(null);
-                setActiveTop('admin');
-              }}
-            >
-              <Shield className={`w-5 h-5 text-black ${activeTop === 'admin' ? 'fill-black' : 'fill-white'}`} />
-              {activeTop === 'admin' && <span className="text-xs font-medium pl-2 pr-1">Admin</span>}
-            </button>
+            {user?.email?.toLowerCase() === 'timegig2026@gmail.com' && (
+              <button 
+                className="flex items-center p-2 text-black hover:bg-gray-100 rounded-full transition-colors focus:outline-none"
+                aria-label="Admin"
+                id="btn-admin-top"
+                onClick={() => {
+                  setView('admin');
+                  setActiveBottom(null);
+                  setActiveTop('admin');
+                }}
+              >
+                <Shield className={`w-5 h-5 text-black ${activeTop === 'admin' ? 'fill-black' : 'fill-white'}`} />
+                {activeTop === 'admin' && <span className="text-xs font-medium pl-2 pr-1">Admin</span>}
+              </button>
+            )}
 
             <button 
               className="flex items-center relative p-2 text-black hover:bg-gray-100 rounded-full transition-colors focus:outline-none"
@@ -2537,7 +2539,8 @@ export default function App() {
             </div>
           </div>
         ) : view === 'admin' ? (
-          <div className="max-w-md mx-auto space-y-4">
+          user?.email?.toLowerCase() === 'timegig2026@gmail.com' ? (
+            <div className="max-w-md mx-auto space-y-4">
             <FeatureGuide feature="admin" />
             <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
               <h2 className="text-gray-500 font-medium mb-1">Total Admin Revenue</h2>
@@ -2776,6 +2779,14 @@ export default function App() {
               </div>
             </div>
           </div>
+        ) : (
+            <div className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+              <Shield className="w-16 h-16 text-gray-200" />
+              <h2 className="text-xl font-bold text-gray-900">Access Denied</h2>
+              <p className="text-gray-500">Only authorized administrators can access this feature.</p>
+              <button onClick={() => setView('home')} className="px-6 py-2 bg-black text-white rounded-lg">Go Home</button>
+            </div>
+          )
         ) : view === 'settings' ? (
           <div className="max-w-md mx-auto space-y-6 pb-24">
             <div className="flex items-center gap-3 mb-2">
@@ -3147,7 +3158,7 @@ export default function App() {
 
       {/* Bottom Area: Chat Input if chatting */}
       {view === 'chat' && selectedContact && (
-        <div className="p-4 bg-white border-t border-gray-200 shrink-0 flex flex-col gap-2 relative" id="chat-input-bar">
+        <div className="p-4 bg-white border-t border-gray-200 shrink-0 flex flex-col gap-2 relative z-50" id="chat-input-bar">
             <AnimatePresence>
               {showEmojiPicker && (
                 <motion.div 
@@ -3289,7 +3300,7 @@ export default function App() {
 
       {/* Bottom Navigation Menu Bar */}
       {view !== 'signup' && view !== 'login' && (
-        <nav className="flex items-center justify-around px-2 py-2 bg-white border-t border-gray-200 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] pb-safe shrink-0" id="bottom-menu">
+        <nav className="flex items-center justify-around px-2 py-2 bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] shrink-0 z-[100] sticky bottom-0 pb-safe-offset-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }} id="bottom-menu">
           <button 
             className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px]"
             id="btn-gigs"
