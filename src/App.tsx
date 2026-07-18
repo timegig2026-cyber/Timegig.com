@@ -3145,10 +3145,9 @@ export default function App() {
         ) : null}
       </main>
 
-      {/* Bottom Area: Menu Bar or Chat Input */}
-      {view === 'chat' ? (
-        selectedContact ? (
-          <div className="p-4 bg-white border-t border-gray-200 pb-safe shrink-0 flex flex-col gap-2 relative" id="chat-input-bar">
+      {/* Bottom Area: Chat Input if chatting */}
+      {view === 'chat' && selectedContact && (
+        <div className="p-4 bg-white border-t border-gray-200 shrink-0 flex flex-col gap-2 relative" id="chat-input-bar">
             <AnimatePresence>
               {showEmojiPicker && (
                 <motion.div 
@@ -3286,8 +3285,10 @@ export default function App() {
               </button>
             </div>
           </div>
-        ) : null
-      ) : view === 'signup' || view === 'login' ? null : (
+        )}
+
+      {/* Bottom Navigation Menu Bar */}
+      {view !== 'signup' && view !== 'login' && (
         <nav className="flex items-center justify-around px-2 py-2 bg-white border-t border-gray-200 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] pb-safe shrink-0" id="bottom-menu">
           <button 
             className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px]"
