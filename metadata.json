@@ -1,0 +1,8 @@
+{
+  "name": "Mobile Layout Layout",
+  "description": "A basic application layout featuring top and bottom menu bars.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
