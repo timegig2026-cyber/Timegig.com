@@ -80,14 +80,37 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // Settings State
-  const [settings, setSettings] = useState({
-    soundEnabled: true,
-    notificationsEnabled: true,
-    accountEnabled: true,
-    pinEnabled: false,
-    pinCode: ''
+  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=300';
+  
+  const [settings, setSettings] = useState(() => {
+    const defaultSettings = {
+      soundEnabled: true,
+      notificationsEnabled: true,
+      accountEnabled: true,
+      pinEnabled: false,
+      pinCode: '',
+      wallpaperUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=2000',
+      blurAmount: 10
+    };
+    const saved = localStorage.getItem('timegig_settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const merged = { ...defaultSettings, ...parsed };
+        // Ensure critical values are defined and not null
+        merged.blurAmount = typeof merged.blurAmount === 'number' ? merged.blurAmount : defaultSettings.blurAmount;
+        merged.wallpaperUrl = merged.wallpaperUrl || defaultSettings.wallpaperUrl;
+        return merged;
+      } catch (e) {
+        console.error("Error parsing settings", e);
+      }
+    }
+    return defaultSettings;
   });
+
+  useEffect(() => {
+    localStorage.setItem('timegig_settings', JSON.stringify(settings));
+  }, [settings]);
   const [selectedTopup, setSelectedTopup] = useState<{coins: string, price: string} | null>(null);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -162,6 +185,12 @@ export default function App() {
     }
   }, [isLoggedIn, view]);
 
+  useEffect(() => {
+    if (view === 'admin' && user?.email?.toLowerCase() === 'timegig2026@gmail.com') {
+      fetchPayments();
+    }
+  }, [view, user]);
+
   const handleLogin = async () => {
     if (!supabase) {
       setUser({ id: 'demo-user', email: loginForm.email });
@@ -187,10 +216,12 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Fetch public data immediately
+    fetchGigs();
+    fetchSeekers();
+
     if (user) {
       fetchUserData();
-      fetchGigs();
-      fetchSeekers();
       fetchPayments();
     }
   }, [user]);
@@ -343,13 +374,21 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
-    } else {
-      setUser(null);
-      setIsLoggedIn(false);
-      setView('login');
-      setActiveBottom(null);
+    // Clear state immediately for instant feedback
+    setUser(null);
+    setIsLoggedIn(false);
+    setView('login');
+    setActiveBottom(null);
+    setActiveTop(null);
+    setShowAppMenu(false);
+    triggerAlert('Logged Out', 'You have been successfully logged out.', 'success');
+
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (error: any) {
+      console.error('Logout error:', error.message);
     }
   };
 
@@ -461,7 +500,7 @@ export default function App() {
   const [selectedGigMedia, setSelectedGigMedia] = useState<{images: string[], index: number} | null>(null);
 
   // Profile State
-  const [profilePic, setProfilePic] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150');
+  const [profilePic, setProfilePic] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=300');
   const [userName, setUserName] = useState('John Doe');
   const [personalInfo, setPersonalInfo] = useState({
     schoolLevel: '',
@@ -771,10 +810,20 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-gray-50 relative overflow-x-hidden">
+    <div className="flex flex-col h-[100dvh] relative overflow-x-hidden">
+      {/* Background Wallpaper with blur effect */}
+      <div 
+        className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat transition-all duration-700"
+        style={{ backgroundImage: `url("${settings.wallpaperUrl}")` }}
+      />
+      <div 
+        className="fixed inset-0 -z-10 bg-white/30 transition-all duration-700" 
+        style={{ backdropFilter: `blur(${settings.blurAmount}px)`, WebkitBackdropFilter: `blur(${settings.blurAmount}px)` }}
+      />
+
       {/* Top Menu Bar */}
       {view !== 'chat' && view !== 'signup' && view !== 'login' && (
-        <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0" id="top-menu">
+        <header className="flex items-center justify-between px-4 py-3 bg-white/60 backdrop-blur-xl border-b border-white/20 shadow-sm shrink-0 z-50" id="top-menu">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <h1 className="text-xl tracking-tight text-black font-display select-none">
@@ -854,22 +903,13 @@ export default function App() {
                       <button 
                         onClick={() => {
                           setActiveTop('profile');
-                          setShowAppMenu(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 font-semibold"
-                      >
-                        <UserIcon className="w-4 h-4 text-gray-400" />
-                        My Profile
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setView('settings');
+                          setActiveBottom(null);
                           setShowAppMenu(false);
                         }}
                         className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-semibold"
                       >
-                        <Settings className="w-4 h-4 text-gray-400" />
-                        Settings
+                        <UserIcon className="w-4 h-4 text-gray-400" />
+                        My Profile
                       </button>
                       <div className="border-t border-gray-100 my-0" />
                       <button 
@@ -881,16 +921,6 @@ export default function App() {
                       >
                         <LogOut className="w-4 h-4" />
                         Logout
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setView('about');
-                          setShowAppMenu(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-[10px] text-gray-400 hover:bg-gray-50 flex items-center gap-3 font-black uppercase tracking-widest border-t border-gray-50"
-                      >
-                        <Info className="w-3 h-3" />
-                        About
                       </button>
                     </motion.div>
                   </>
@@ -941,10 +971,27 @@ export default function App() {
           </div>
         ) : activeTop === 'profile' ? (
           <div className="max-w-md mx-auto space-y-4">
+            <div className="flex items-center gap-3 mb-2">
+              <button 
+                onClick={() => setActiveTop(null)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <h2 className="text-xl font-medium text-gray-800">My Profile</h2>
+            </div>
             <FeatureGuide feature="profile" />
             <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-3 overflow-hidden border-2 border-gray-200 relative">
-                <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+                <img 
+                  src={profilePic || DEFAULT_IMAGE} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = DEFAULT_IMAGE;
+                  }}
+                />
                 {!settings.accountEnabled && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     <span className="bg-red-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-lg tracking-tighter">Offline</span>
@@ -1100,8 +1147,11 @@ export default function App() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        const url = URL.createObjectURL(file);
-                        setProfilePic(url);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setProfilePic(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
                       }
                     }}
                   />
@@ -1120,7 +1170,7 @@ export default function App() {
                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Full Name</label>
                 <input 
                   type="text" 
-                  value={userName}
+                  value={userName || ''}
                   onChange={(e) => setUserName(e.target.value)}
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
                   placeholder="Your name"
@@ -1131,7 +1181,7 @@ export default function App() {
                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">School Level</label>
                 <input 
                   type="text" 
-                  value={personalInfo.schoolLevel}
+                  value={personalInfo.schoolLevel || ''}
                   onChange={(e) => setPersonalInfo({...personalInfo, schoolLevel: e.target.value})}
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
                   placeholder="e.g. Bachelor of Commerce"
@@ -1141,7 +1191,7 @@ export default function App() {
               <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Experiences</label>
                 <textarea 
-                  value={personalInfo.experience}
+                  value={personalInfo.experience || ''}
                   onChange={(e) => setPersonalInfo({...personalInfo, experience: e.target.value})}
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5 min-h-[80px]"
                   placeholder="Briefly describe your work experience..."
@@ -1160,7 +1210,7 @@ export default function App() {
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Email Address</label>
                   <input 
                     type="email" 
-                    value={personalInfo.contactEmail}
+                    value={personalInfo.contactEmail || ''}
                     onChange={(e) => setPersonalInfo({...personalInfo, contactEmail: e.target.value})}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
                     placeholder="email@example.com"
@@ -1170,7 +1220,7 @@ export default function App() {
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Phone Number</label>
                   <input 
                     type="tel" 
-                    value={personalInfo.contactPhone}
+                    value={personalInfo.contactPhone || ''}
                     onChange={(e) => setPersonalInfo({...personalInfo, contactPhone: e.target.value})}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
                     placeholder="+27 12 345 6789"
@@ -1387,7 +1437,7 @@ export default function App() {
                         <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
                         <input 
                           type="text" 
-                          value={signupForm.fullName}
+                          value={signupForm.fullName || ''}
                           onChange={(e) => setSignupForm(prev => ({ ...prev, fullName: e.target.value }))}
                           placeholder="John Doe" 
                           className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
@@ -1401,7 +1451,7 @@ export default function App() {
                         <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
                         <input 
                           type="tel" 
-                          value={signupForm.phone}
+                          value={signupForm.phone || ''}
                           onChange={(e) => setSignupForm(prev => ({ ...prev, phone: e.target.value }))}
                           placeholder="+1 234 567 890" 
                           className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
@@ -1431,7 +1481,7 @@ export default function App() {
                         <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
                         <input 
                           type="email" 
-                          value={signupForm.email}
+                          value={signupForm.email || ''}
                           onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))}
                           placeholder="email@example.com" 
                           className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
@@ -1445,7 +1495,7 @@ export default function App() {
                         <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
                         <input 
                           type="password" 
-                          value={signupForm.password}
+                          value={signupForm.password || ''}
                           onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))}
                           placeholder="••••••••" 
                           className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
@@ -1515,7 +1565,7 @@ export default function App() {
                     <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
                     <input 
                       type="email" 
-                      value={loginForm.email}
+                      value={loginForm.email || ''}
                       onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
                       placeholder="email@example.com" 
                       className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
@@ -1532,7 +1582,7 @@ export default function App() {
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
                     <input 
                       type="password" 
-                      value={loginForm.password}
+                      value={loginForm.password || ''}
                       onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
                       placeholder="••••••••" 
                       className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
@@ -1655,73 +1705,101 @@ export default function App() {
                     setIsDragging(false);
                     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                       const file = e.dataTransfer.files[0];
-                      if (file.type.startsWith('image/') || file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+                      if (file.type.startsWith('image/') || file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
                         setUploadedFileName(file.name);
-                        setUploadedFileType(file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : ''));
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setFileUploaded(true);
-                          setUploadedFileUrl(reader.result as string);
-                        };
-                        reader.readAsDataURL(file);
+                        setUploadedFileType(file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : ''));
+                        const url = URL.createObjectURL(file);
+                        setUploadedFileUrl(url);
+                        setFileUploaded(true);
                       } else {
                         triggerAlert('Invalid File', 'Please upload an image or a PDF file.', 'error');
                       }
                     }
                   }}
-                  className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all relative ${
+                  className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center transition-all relative overflow-hidden ${
                     fileUploaded 
-                      ? 'border-green-400 bg-green-50/50' 
+                      ? 'border-green-400 bg-green-50/50 p-4' 
                       : isDragging 
-                        ? 'border-[#FF2E2E] bg-red-50/10 scale-[1.02]' 
-                        : 'border-gray-200 hover:border-[#FF2E2E]/40 hover:bg-gray-50'
+                        ? 'border-[#FF2E2E] bg-red-50/10 scale-[1.02] p-8' 
+                        : 'border-gray-200 hover:border-[#FF2E2E]/40 hover:bg-gray-50 p-8'
                   }`}
                 >
                   <input 
                     type="file" 
+                    id="proof-upload-input"
                     accept="image/*,.pdf"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                    className="hidden" 
                     onChange={(e) => {
                       if (e.target.files && e.target.files.length > 0) {
                         const file = e.target.files[0];
                         setUploadedFileName(file.name);
-                        setUploadedFileType(file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : ''));
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setFileUploaded(true);
-                          setUploadedFileUrl(reader.result as string);
-                        };
-                        reader.readAsDataURL(file);
+                        setUploadedFileType(file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : ''));
+                        const url = URL.createObjectURL(file);
+                        setUploadedFileUrl(url);
+                        setFileUploaded(true);
                       }
                     }}
                   />
+                  {!fileUploaded && (
+                    <div 
+                      className="absolute inset-0 w-full h-full cursor-pointer z-10"
+                      onClick={() => document.getElementById('proof-upload-input')?.click()}
+                    />
+                  )}
                   {fileUploaded ? (
-                    <div className="flex flex-col items-center justify-center p-2">
+                    <div className="flex flex-col items-center justify-center p-2 w-full">
                       {uploadedFileType?.startsWith('image/') ? (
-                        <div className="relative w-32 h-32 mb-3 rounded-lg overflow-hidden border border-green-200 shadow-sm">
+                        <div className="relative w-full max-h-64 mb-4 rounded-xl overflow-hidden border border-green-200 shadow-md bg-white">
                           <img 
                             src={uploadedFileUrl || ''} 
                             alt="Proof Preview" 
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                           />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <CheckCircle className="w-8 h-8 text-white drop-shadow" />
+                          <div className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full shadow-lg">
+                            <CheckCircle className="w-5 h-5" />
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3 shadow-sm max-w-xs mb-3">
-                          <div className="w-10 h-10 bg-red-50 text-red-600 rounded-lg flex items-center justify-center shrink-0">
-                            <FileText className="w-6 h-6" />
+                        <div className="flex flex-col items-center gap-4 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm w-full mb-4">
+                          <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                            <FileText className="w-10 h-10" />
                           </div>
-                          <div className="text-left overflow-hidden">
-                            <p className="text-xs font-semibold text-gray-900 truncate max-w-[160px]">{uploadedFileName || 'Document.pdf'}</p>
-                            <p className="text-[10px] text-gray-400 font-mono">PDF Document</p>
+                          <div className="text-center overflow-hidden w-full">
+                            <p className="text-sm font-bold text-gray-900 truncate px-4">{uploadedFileName || 'Document.pdf'}</p>
+                            <p className="text-xs text-gray-400 font-mono mt-1 uppercase tracking-widest">PDF Document</p>
                           </div>
-                          <CheckCircle className="w-5 h-5 text-green-500 shrink-0 ml-1" />
+                          <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            File Ready
+                          </div>
                         </div>
                       )}
-                      <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-0.5">Proof of Payment Ready</p>
-                      <p className="text-[10px] text-gray-400">Tap or drag file to replace</p>
+                      
+                      <div className="flex gap-2 w-full mb-4">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingDocument({ id: 'preview', documentUrl: uploadedFileUrl } as any);
+                          }}
+                          className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2"
+                        >
+                          <Search className="w-4 h-4" />
+                          View Full Screen
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFileUploaded(false);
+                            setUploadedFileUrl(null);
+                            setUploadedFileName(null);
+                          }}
+                          className="py-2.5 px-4 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <p className="text-[10px] text-gray-400 font-medium">Tap above to replace file</p>
                     </div>
                   ) : (
                     <>
@@ -2293,7 +2371,15 @@ export default function App() {
                 gigs.filter(g => g.title.toLowerCase().includes(gigSearchQuery.toLowerCase())).map((gig) => (
                   <div key={gig.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer" onClick={() => setSelectedGig(gig)}>
                     <div className="h-36 w-full relative overflow-hidden">
-                      <img src={gig.images[0]} alt={gig.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img 
+                        src={gig.images[0] || DEFAULT_IMAGE} 
+                        alt={gig.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = DEFAULT_IMAGE;
+                        }}
+                      />
                       <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full">R{gig.budget}</div>
                       <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-md text-black text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
                         <ImageIcon className="w-3 h-3" /> {gig.images.length}
@@ -2377,7 +2463,7 @@ export default function App() {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Gig Title</label>
                   <input 
                     type="text" 
-                    value={newGig.title}
+                    value={newGig.title || ''}
                     onChange={(e) => setNewGig({...newGig, title: e.target.value})}
                     placeholder="e.g. Professional Dog Walker"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 outline-none transition-all"
@@ -2389,7 +2475,7 @@ export default function App() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R</span>
                     <input 
                       type="number" 
-                      value={newGig.budget}
+                      value={newGig.budget || ''}
                       onChange={(e) => setNewGig({...newGig, budget: e.target.value})}
                       placeholder="e.g. 500"
                       className="w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 outline-none transition-all"
@@ -2399,7 +2485,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Description</label>
                   <textarea 
-                    value={newGig.description}
+                    value={newGig.description || ''}
                     onChange={(e) => setNewGig({...newGig, description: e.target.value})}
                     placeholder="Describe your service in detail..."
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 outline-none transition-all min-h-[120px] resize-none"
@@ -2412,7 +2498,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Category</label>
                   <select 
-                    value={newGig.category}
+                    value={newGig.category || ''}
                     onChange={(e) => setNewGig({...newGig, category: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 outline-none"
                   >
@@ -2423,7 +2509,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Province</label>
                   <select 
-                    value={newGig.province}
+                    value={newGig.province || ''}
                     onChange={(e) => setNewGig({...newGig, province: e.target.value, location: ''})}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 outline-none"
                   >
@@ -2437,7 +2523,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Specific Location</label>
                   <select 
-                    value={newGig.location}
+                    value={newGig.location || ''}
                     onChange={(e) => setNewGig({...newGig, location: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black/5 outline-none"
                   >
@@ -2564,7 +2650,15 @@ export default function App() {
                 seekers.filter(s => s.name.toLowerCase().includes(seekerSearchQuery.toLowerCase()) || s.industry.toLowerCase().includes(seekerSearchQuery.toLowerCase())).map((seeker) => (
                   <div key={seeker.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer" onClick={() => setSelectedSeeker(seeker)}>
                     <div className="h-36 w-full relative overflow-hidden">
-                      <img src={seeker.images[0]} alt={seeker.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img 
+                        src={seeker.images[0] || DEFAULT_IMAGE} 
+                        alt={seeker.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = DEFAULT_IMAGE;
+                        }}
+                      />
                       <div className="absolute top-2 right-2 bg-green-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full">Active</div>
                     </div>
                     <div className="p-3">
@@ -2643,7 +2737,7 @@ export default function App() {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Industry / Skill</label>
                   <input 
                     type="text" 
-                    value={newSeeker.industry}
+                    value={newSeeker.industry || ''}
                     onChange={(e) => setNewSeeker({...newSeeker, industry: e.target.value})}
                     placeholder="e.g. Graphic Designer, Plumber"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 outline-none transition-all"
@@ -2653,7 +2747,7 @@ export default function App() {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Rate (e.g. R200/hr)</label>
                   <input 
                     type="text" 
-                    value={newSeeker.rate}
+                    value={newSeeker.rate || ''}
                     onChange={(e) => setNewSeeker({...newSeeker, rate: e.target.value})}
                     placeholder="e.g. R200/hr"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 outline-none transition-all"
@@ -2662,7 +2756,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Service Information</label>
                   <textarea 
-                    value={newSeeker.needs}
+                    value={newSeeker.needs || ''}
                     onChange={(e) => setNewSeeker({...newSeeker, needs: e.target.value})}
                     placeholder="Tell us about the services you offer..."
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 outline-none transition-all min-h-[120px] resize-none"
@@ -2675,7 +2769,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Category</label>
                   <select 
-                    value={newSeeker.category}
+                    value={newSeeker.category || ''}
                     onChange={(e) => setNewSeeker({...newSeeker, category: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 outline-none"
                   >
@@ -2686,7 +2780,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Province</label>
                   <select 
-                    value={newSeeker.province}
+                    value={newSeeker.province || ''}
                     onChange={(e) => setNewSeeker({...newSeeker, province: e.target.value, location: ''})}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 outline-none"
                   >
@@ -2700,7 +2794,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Specific Location</label>
                   <select 
-                    value={newSeeker.location}
+                    value={newSeeker.location || ''}
                     onChange={(e) => setNewSeeker({...newSeeker, location: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 outline-none"
                   >
@@ -3027,6 +3121,12 @@ export default function App() {
         ) : view === 'settings' ? (
           <div className="max-w-md mx-auto space-y-6 pb-24">
             <div className="flex items-center gap-3 mb-2">
+              <button 
+                onClick={() => setView('wallet')}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
               <h2 className="text-xl font-bold text-gray-900">Settings</h2>
             </div>
             <FeatureGuide feature="settings" />
@@ -3087,6 +3187,75 @@ export default function App() {
                       className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm"
                     />
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Appearance</h3>
+              </div>
+              <div className="divide-y divide-gray-100 p-4 space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Custom Wallpaper</p>
+                      <p className="text-[10px] text-gray-500">Upload a background image</p>
+                    </div>
+                    <button 
+                      onClick={() => document.getElementById('wallpaper-upload')?.click()}
+                      className="p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <input 
+                      type="file"
+                      id="wallpaper-upload"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          const file = e.target.files[0];
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setSettings(prev => ({ ...prev, wallpaperUrl: reader.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="relative w-full h-24 rounded-xl overflow-hidden border border-gray-100 shadow-inner group">
+                    <img src={settings.wallpaperUrl} alt="Current wallpaper" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/10" />
+                    <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[8px] text-white font-bold uppercase tracking-widest">
+                      Preview
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Glass Blur Intensity</p>
+                      <p className="text-[10px] text-gray-500">Adjust the background blur effect</p>
+                    </div>
+                    <span className="text-xs font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-md">{settings.blurAmount}px</span>
+                  </div>
+                  <input 
+                    type="range"
+                    min="0"
+                    max="40"
+                    step="1"
+                    value={settings.blurAmount ?? 10}
+                    onChange={(e) => setSettings(prev => ({ ...prev, blurAmount: parseInt(e.target.value) }))}
+                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-400 font-bold uppercase tracking-widest px-1">
+                    <span>Sharp</span>
+                    <span>Soft</span>
+                    <span>Blurry</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3329,7 +3498,13 @@ export default function App() {
           </div>
         ) : view === 'set-pin' ? (
           <div className="max-w-md mx-auto h-full flex flex-col pb-24">
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-4 mb-8">
+              <button 
+                onClick={() => setView('settings')}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-900" />
+              </button>
               <h2 className="text-xl font-bold text-gray-900">Set 4-Digit PIN</h2>
             </div>
 
@@ -3557,10 +3732,10 @@ export default function App() {
         )}
 
       {/* Bottom Navigation Menu Bar */}
-      {view !== 'signup' && view !== 'login' && !viewingDocument && (
-        <nav className="flex items-center justify-around px-2 py-2 bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] shrink-0 z-[100] sticky bottom-0 pb-safe-offset-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }} id="bottom-menu">
+      {view !== 'signup' && view !== 'login' && view !== 'set-pin' && !viewingDocument && activeTop !== 'profile' && (
+        <nav className="flex items-center justify-around px-2 py-2 bg-white/40 backdrop-blur-3xl border-t border-white/20 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] shrink-0 z-[100] sticky bottom-0 pb-safe-offset-2 transition-all duration-500" style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }} id="bottom-menu">
           <button 
-            className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px]"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 focus:outline-none min-w-[64px] ${activeBottom === 'gigs' ? 'bg-black text-white shadow-lg scale-105' : 'text-gray-600 hover:bg-black/5'}`}
             id="btn-gigs"
             onClick={() => {
               setActiveBottom('gigs');
@@ -3568,12 +3743,12 @@ export default function App() {
               setView('gigs');
             }}
           >
-            <Briefcase className={`w-5 h-5 text-black fill-white transition-all ${activeBottom === 'gigs' ? 'mb-1' : ''}`} />
-            {activeBottom === 'gigs' && <span className="text-[8px] font-bold uppercase tracking-wider text-black">GiGs</span>}
+            <Briefcase className={`w-5 h-5 transition-all ${activeBottom === 'gigs' ? 'mb-1' : ''}`} />
+            {activeBottom === 'gigs' && <span className="text-[8px] font-black uppercase tracking-widest">GiGs</span>}
           </button>
 
           <button 
-            className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px]"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 focus:outline-none min-w-[64px] ${activeBottom === 'seekers' ? 'bg-black text-white shadow-lg scale-105' : 'text-gray-600 hover:bg-black/5'}`}
             id="btn-seekers"
             onClick={() => {
               setActiveBottom('seekers');
@@ -3581,12 +3756,12 @@ export default function App() {
               setView('seekers');
             }}
           >
-            <Search className={`w-5 h-5 text-black fill-white transition-all ${activeBottom === 'seekers' ? 'mb-1' : ''}`} />
-            {activeBottom === 'seekers' && <span className="text-[8px] font-bold uppercase tracking-wider text-black">Seekers</span>}
+            <Search className={`w-5 h-5 transition-all ${activeBottom === 'seekers' ? 'mb-1' : ''}`} />
+            {activeBottom === 'seekers' && <span className="text-[8px] font-black uppercase tracking-widest text-white">Seekers</span>}
           </button>
 
           <button 
-            className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px] relative"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 focus:outline-none min-w-[64px] relative ${activeBottom === 'chat' ? 'bg-black text-white shadow-lg scale-105' : 'text-gray-600 hover:bg-black/5'}`}
             id="btn-chat"
             onClick={() => {
               setActiveBottom('chat');
@@ -3596,18 +3771,18 @@ export default function App() {
             }}
           >
             <div className="relative">
-              <MessageSquare className={`w-5 h-5 text-black fill-white transition-all ${activeBottom === 'chat' ? 'mb-1' : ''}`} />
+              <MessageSquare className={`w-5 h-5 transition-all ${activeBottom === 'chat' ? 'mb-1' : ''}`} />
               {unreadMessages > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm border border-white">
+                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm border border-white animate-pulse">
                   {unreadMessages}
                 </span>
               )}
             </div>
-            {activeBottom === 'chat' && <span className="text-[8px] font-bold uppercase tracking-wider text-black">Chat</span>}
+            {activeBottom === 'chat' && <span className="text-[8px] font-black uppercase tracking-widest text-white">Chat</span>}
           </button>
 
           <button 
-            className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px]"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 focus:outline-none min-w-[64px] ${activeBottom === 'wallet' ? 'bg-black text-white shadow-lg scale-105' : 'text-gray-600 hover:bg-black/5'}`}
             id="btn-wallet"
             onClick={() => {
               setActiveBottom('wallet');
@@ -3615,12 +3790,12 @@ export default function App() {
               setView('wallet');
             }}
           >
-            <Wallet className={`w-5 h-5 text-black fill-white transition-all ${activeBottom === 'wallet' ? 'mb-1' : ''}`} />
-            {activeBottom === 'wallet' && <span className="text-[8px] font-bold uppercase tracking-wider text-black">Wallet</span>}
+            <Wallet className={`w-5 h-5 transition-all ${activeBottom === 'wallet' ? 'mb-1' : ''}`} />
+            {activeBottom === 'wallet' && <span className="text-[8px] font-black uppercase tracking-widest text-white">Wallet</span>}
           </button>
           
           <button 
-            className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px]"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 focus:outline-none min-w-[64px] ${activeBottom === 'referral' ? 'bg-black text-white shadow-lg scale-105' : 'text-gray-600 hover:bg-black/5'}`}
             id="btn-referral"
             onClick={() => {
               setActiveBottom('referral');
@@ -3628,8 +3803,21 @@ export default function App() {
               setView('referral');
             }}
           >
-            <Gift className={`w-5 h-5 text-black fill-white transition-all ${activeBottom === 'referral' ? 'mb-1' : ''}`} />
-            {activeBottom === 'referral' && <span className="text-[8px] font-bold uppercase tracking-wider text-black">Referrals</span>}
+            <Gift className={`w-5 h-5 transition-all ${activeBottom === 'referral' ? 'mb-1' : ''}`} />
+            {activeBottom === 'referral' && <span className="text-[8px] font-black uppercase tracking-widest text-white">Referrals</span>}
+          </button>
+
+          <button 
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-300 focus:outline-none min-w-[64px] ${activeBottom === 'settings' ? 'bg-black text-white shadow-lg scale-105' : 'text-gray-600 hover:bg-black/5'}`}
+            id="btn-settings-nav"
+            onClick={() => {
+              setActiveBottom('settings');
+              setActiveTop(null);
+              setView('settings');
+            }}
+          >
+            <Settings className={`w-5 h-5 transition-all ${activeBottom === 'settings' ? 'mb-1' : ''}`} />
+            {activeBottom === 'settings' && <span className="text-[8px] font-black uppercase tracking-widest text-white">Settings</span>}
           </button>
         </nav>
       )}
@@ -3853,7 +4041,15 @@ export default function App() {
 
             <div className="flex-1 overflow-y-auto">
               <div className="aspect-video w-full bg-gray-100 relative group" onClick={() => setSelectedGigMedia({ images: selectedGig.images, index: 0 })}>
-                <img src={selectedGig.images[0]} alt={selectedGig.title} className="w-full h-full object-cover" />
+                <img 
+                  src={selectedGig.images[0] || DEFAULT_IMAGE} 
+                  alt={selectedGig.title} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = DEFAULT_IMAGE;
+                  }}
+                />
                 <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2">
                   <ImageIcon className="w-4 h-4" /> {selectedGig.images.length} Photos
                 </div>
@@ -3873,7 +4069,15 @@ export default function App() {
                 </div>
 
                 <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <img src={selectedGig.owner.pic} alt={selectedGig.owner.name} className="w-12 h-12 rounded-full border-2 border-white shadow-sm" />
+                  <img 
+                    src={selectedGig.owner.pic || DEFAULT_IMAGE} 
+                    alt={selectedGig.owner.name} 
+                    className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = DEFAULT_IMAGE;
+                    }}
+                  />
                   <div className="flex-1">
                     <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Posted by</p>
                     <p className="font-bold text-gray-900">{selectedGig.owner.name}</p>
@@ -3938,7 +4142,15 @@ export default function App() {
 
             <div className="flex-1 overflow-y-auto">
               <div className="aspect-video w-full bg-gray-100 relative group" onClick={() => setSelectedGigMedia({ images: selectedSeeker.images, index: 0 })}>
-                <img src={selectedSeeker.images[0]} alt={selectedSeeker.name} className="w-full h-full object-cover" />
+                <img 
+                  src={selectedSeeker.images[0] || DEFAULT_IMAGE} 
+                  alt={selectedSeeker.name} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = DEFAULT_IMAGE;
+                  }}
+                />
                 <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2">
                   <ImageIcon className="w-4 h-4" /> {selectedSeeker.images.length} Photos
                 </div>
@@ -3946,7 +4158,15 @@ export default function App() {
 
               <div className="p-6 space-y-6">
                 <div className="flex items-center gap-4">
-                  <img src={selectedSeeker.owner.pic} alt={selectedSeeker.name} className="w-16 h-16 rounded-full border-2 border-white shadow-lg" />
+                  <img 
+                    src={selectedSeeker.owner.pic || DEFAULT_IMAGE} 
+                    alt={selectedSeeker.name} 
+                    className="w-16 h-16 rounded-full border-2 border-white shadow-lg"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = DEFAULT_IMAGE;
+                    }}
+                  />
                   <div className="flex-1">
                     <h1 className="text-2xl font-bold text-gray-900">{selectedSeeker.name}</h1>
                     <div className="flex items-center gap-1 text-gray-500 text-xs font-medium">
