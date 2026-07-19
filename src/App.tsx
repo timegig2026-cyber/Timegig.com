@@ -335,7 +335,7 @@ export default function App() {
         }
       });
       if (error) throw error;
-      triggerAlert('Verification Sent', 'Check your email for the confirmation link!', 'success');
+      triggerAlert('Account Created', 'Your account has been created successfully! You can now log in.', 'success');
       setView('login');
     } catch (error: any) {
       triggerAlert('Signup Failed', error.message, 'error');
