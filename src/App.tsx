@@ -863,16 +863,6 @@ export default function App() {
                       </button>
                       <button 
                         onClick={() => {
-                          setActiveTop('profile');
-                          setShowAppMenu(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 font-semibold"
-                      >
-                        <Layout className="w-4 h-4 text-gray-400" />
-                        My Listings
-                      </button>
-                      <button 
-                        onClick={() => {
                           setView('settings');
                           setShowAppMenu(false);
                         }}
@@ -915,16 +905,24 @@ export default function App() {
       <main className={`flex-1 ${view === 'chat' ? 'overflow-hidden' : 'overflow-y-auto p-4'}`} id="main-content">
         {activeTop === 'notifications' ? (
           <div className="max-w-md mx-auto space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-medium text-gray-800">Notifications</h2>
-              {notifications.length > 0 && (
-                <button 
-                  onClick={() => setNotifications([])}
-                  className="text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
-                >
-                  Clear All
-                </button>
-              )}
+            <div className="flex items-center gap-3 mb-2">
+              <button 
+                onClick={() => setActiveTop(null)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex-1 flex items-center justify-between">
+                <h2 className="text-xl font-medium text-gray-800">Notifications</h2>
+                {notifications.length > 0 && (
+                  <button 
+                    onClick={() => setNotifications([])}
+                    className="text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
             </div>
             <FeatureGuide feature="notifications" />
             {notifications.length === 0 ? (
@@ -3049,7 +3047,13 @@ export default function App() {
                     </div>
                   </div>
                   <button 
-                    onClick={() => setSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+                    onClick={() => {
+                      const newSound = !settings.soundEnabled;
+                      setSettings(prev => ({ ...prev, soundEnabled: newSound }));
+                      if (newSound) {
+                        playNotificationSound();
+                      }
+                    }}
                     className={`w-12 h-6 rounded-full relative transition-colors ${settings.soundEnabled ? 'bg-black' : 'bg-gray-200'}`}
                   >
                     <motion.div 
@@ -3069,7 +3073,13 @@ export default function App() {
                     </div>
                   </div>
                   <button 
-                    onClick={() => setSettings(prev => ({ ...prev, notificationsEnabled: !prev.notificationsEnabled }))}
+                    onClick={() => {
+                      const newNotif = !settings.notificationsEnabled;
+                      setSettings(prev => ({ ...prev, notificationsEnabled: newNotif }));
+                      if (settings.soundEnabled) {
+                        playNotificationSound();
+                      }
+                    }}
                     className={`w-12 h-6 rounded-full relative transition-colors ${settings.notificationsEnabled ? 'bg-black' : 'bg-gray-200'}`}
                   >
                     <motion.div 
@@ -3119,7 +3129,7 @@ export default function App() {
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${settings.accountEnabled ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                      {settings.accountEnabled ? <Power className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                      {settings.accountEnabled ? <Power className="w-4 h-4" /> : <X className="w-4 h-4" />}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{settings.accountEnabled ? 'Account Active' : 'Account Disabled'}</p>
@@ -3130,6 +3140,9 @@ export default function App() {
                     onClick={() => {
                       const newState = !settings.accountEnabled;
                       setSettings(prev => ({ ...prev, accountEnabled: newState }));
+                      if (settings.soundEnabled) {
+                        playNotificationSound();
+                      }
                       setShowPopup({ 
                         show: true, 
                         title: newState ? 'Account Enabled' : 'Account Disabled', 
@@ -3174,6 +3187,12 @@ export default function App() {
         ) : view === 'about' ? (
           <div className="max-w-md mx-auto space-y-6 pb-24">
             <div className="flex items-center gap-3 mb-2">
+              <button 
+                onClick={() => setView('settings')}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
               <h2 className="text-xl font-bold text-gray-900">About TimeGiG</h2>
             </div>
 
