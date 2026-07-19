@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
-import { User as UserIcon, Bell, Wallet, Shield, Gift, Upload, CheckCircle, ArrowLeft, BadgeCheck, X, FileText, Trash2, Globe, MapPin, Mail, Plus, Edit3, Phone, MessageSquare, Briefcase, Search, Image as ImageIcon, Video, Heart, MoreVertical, ChevronRight, ChevronLeft, Settings, LogOut, Moon, Lock, HelpCircle, Volume2, VolumeX, Key, Power, Info } from 'lucide-react';
+import { User as UserIcon, Bell, Wallet, Shield, Gift, Upload, CheckCircle, ArrowLeft, BadgeCheck, X, FileText, Trash2, Globe, MapPin, Mail, Plus, Edit3, Phone, MessageSquare, Briefcase, Search, Image as ImageIcon, Video, Heart, MoreVertical, ChevronRight, ChevronLeft, Settings, LogOut, Moon, Lock, HelpCircle, Volume2, VolumeX, Key, Power, Info, Layout } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
 import { FeatureGuide } from './components/FeatureGuide';
@@ -32,6 +32,37 @@ const playCoinSound = () => {
     // Coin chime effect
     playNote(987.77, 0, 0.1); // B5
     playNote(1318.51, 0.1, 0.4); // E6
+  } catch (e) {
+    console.error("Audio not supported", e);
+  }
+};
+
+const playNotificationSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    
+    const playNote = (freq: number, startTime: number, duration: number, type: OscillatorType = 'sine') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+      
+      gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(ctx.currentTime + startTime);
+      osc.stop(ctx.currentTime + startTime + duration);
+    };
+
+    playNote(880, 0, 0.3, 'sine');
+    playNote(1108.73, 0.05, 0.4, 'sine');
   } catch (e) {
     console.error("Audio not supported", e);
   }
@@ -84,7 +115,8 @@ export default function App() {
     });
   };
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
-  const [signupForm, setSignupForm] = useState({ email: '', password: '', acceptTerms: false });
+  const [signupForm, setSignupForm] = useState({ email: '', password: '', fullName: '', phone: '', acceptTerms: false });
+  const [signupStep, setSignupStep] = useState(1);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [pinForm, setPinForm] = useState('');
 
@@ -284,7 +316,7 @@ export default function App() {
       setIsLoggedIn(true);
       setView('wallet');
       setActiveBottom('wallet');
-      setUserName(signupForm.email.split('@')[0] || 'Demo User');
+      setUserName(signupForm.fullName || signupForm.email.split('@')[0] || 'Demo User');
       setCoinBalance(150);
       setReferralBalance(0);
       setIsAgent(false);
@@ -295,6 +327,12 @@ export default function App() {
       const { error } = await supabase.auth.signUp({
         email: signupForm.email,
         password: signupForm.password,
+        options: {
+          data: {
+            full_name: signupForm.fullName,
+            phone: signupForm.phone,
+          }
+        }
       });
       if (error) throw error;
       triggerAlert('Verification Sent', 'Check your email for the confirmation link!', 'success');
@@ -508,6 +546,38 @@ export default function App() {
   const [fullscreenMedia, setFullscreenMedia] = useState<{url: string, type: 'image' | 'video'} | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [viewingProfile, setViewingProfile] = useState<{name: string, role: string, pic: string, bio: string} | null>(null);
+
+  // Sound effect for notifications and chat
+  useEffect(() => {
+    if (isLoggedIn && settings.soundEnabled) {
+      if (notifications.length > 0 || chatMessages.length > 0) {
+        // Only play if the most recent notification/message is new
+        // For simplicity in this demo, we play when lengths increase
+      }
+    }
+  }, [notifications.length, chatMessages.length, isLoggedIn, settings.soundEnabled]);
+
+  // Handle playing sounds on new items
+  const lastNotifCount = React.useRef(notifications.length);
+  const lastChatCount = React.useRef(chatMessages.length);
+
+  useEffect(() => {
+    if (isLoggedIn && settings.soundEnabled) {
+      if (notifications.length > lastNotifCount.current) {
+        playNotificationSound();
+      }
+      lastNotifCount.current = notifications.length;
+    }
+  }, [notifications.length, isLoggedIn, settings.soundEnabled]);
+
+  useEffect(() => {
+    if (isLoggedIn && settings.soundEnabled) {
+      if (chatMessages.length > lastChatCount.current) {
+        playNotificationSound();
+      }
+      lastChatCount.current = chatMessages.length;
+    }
+  }, [chatMessages.length, isLoggedIn, settings.soundEnabled]);
   const handleMediaUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -793,6 +863,16 @@ export default function App() {
                       </button>
                       <button 
                         onClick={() => {
+                          setActiveTop('profile');
+                          setShowAppMenu(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 font-semibold"
+                      >
+                        <Layout className="w-4 h-4 text-gray-400" />
+                        My Listings
+                      </button>
+                      <button 
+                        onClick={() => {
                           setView('settings');
                           setShowAppMenu(false);
                         }}
@@ -912,6 +992,91 @@ export default function App() {
                 <div className="flex items-center gap-3 text-sm text-gray-600">
                   <Phone className="w-4 h-4" />
                   <span>{personalInfo.contactPhone || 'No phone set'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium text-gray-800">Your Listings</h3>
+                <span className="text-[10px] font-black uppercase text-gray-400 bg-gray-50 px-2 py-0.5 rounded tracking-tighter border border-gray-100">Dashboard</span>
+              </div>
+              
+              <div className="space-y-4">
+                {/* User's GiGs */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Briefcase className="w-3.5 h-3.5 text-black" />
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">My GiGs ({gigs.filter(g => g.owner_id === user?.id).length})</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {gigs.filter(g => g.owner_id === user?.id).length === 0 ? (
+                      <p className="text-[10px] text-gray-400 italic">No gigs created yet.</p>
+                    ) : (
+                      gigs.filter(g => g.owner_id === user?.id).map(gig => (
+                        <div key={gig.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between group">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-white">
+                              <img src={gig.images[0]} alt="" className="w-full h-full object-cover" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-gray-900 truncate">{gig.title}</p>
+                              <p className="text-[10px] text-gray-500 font-medium">{gig.price}</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setSelectedGig(gig);
+                              setView('gigs');
+                              setActiveBottom('gigs');
+                            }}
+                            className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 hover:text-black shadow-sm"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="h-px bg-gray-50 w-full" />
+
+                {/* User's Seekers */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Search className="w-3.5 h-3.5 text-black" />
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">My Seekers ({seekers.filter(s => s.owner_id === user?.id).length})</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {seekers.filter(s => s.owner_id === user?.id).length === 0 ? (
+                      <p className="text-[10px] text-gray-400 italic">No seeker posts yet.</p>
+                    ) : (
+                      seekers.filter(s => s.owner_id === user?.id).map(seeker => (
+                        <div key={seeker.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between group">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-white">
+                              <img src={seeker.images[0]} alt="" className="w-full h-full object-cover" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-gray-900 truncate">{seeker.name}</p>
+                              <p className="text-[10px] text-gray-500 font-medium">{seeker.rate}</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setSelectedSeeker(seeker);
+                              setView('seekers');
+                              setActiveBottom('seekers');
+                            }}
+                            className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 hover:text-black shadow-sm"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1180,7 +1345,7 @@ export default function App() {
               </button>
               <button
                 onClick={() => setView('gigs')}
-                className="w-full py-6 bg-white text-black border-4 border-black rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-gray-50 transition-all active:scale-95 shadow-[0_10px_0_0_rgba(220,38,38,1)]"
+                className="w-full py-6 bg-white text-black border-4 border-black rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-gray-50 transition-all active:scale-95 shadow-[0_10px_0_0_rgba(0,0,0,1)]"
               >
                 Browse Gigs
               </button>
@@ -1195,64 +1360,137 @@ export default function App() {
               <h2 className="text-4xl tracking-tight text-black">
                 <span className="font-medium">Time</span><span className="font-black">GiG</span><span className="text-[#FF2E2E] font-black">.</span>
               </h2>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.25em]">Join the Revolution</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.25em]">
+                {signupStep === 1 ? 'Step 1: Your Identity' : 'Step 2: Security'}
+              </p>
             </div>
 
             <div className="bg-white/95 backdrop-blur-3xl rounded-[2.5rem] border border-gray-100 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] p-10 space-y-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF2E2E]/30 to-transparent"></div>
-              
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Your Email</label>
-                  <div className="relative group">
-                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
-                    <input 
-                      type="email" 
-                      value={signupForm.email}
-                      onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="email@example.com" 
-                      className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Secure Password</label>
-                  <div className="relative group">
-                    <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
-                    <input 
-                      type="password" 
-                      value={signupForm.password}
-                      onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))}
-                      placeholder="••••••••" 
-                      className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
-                    />
-                  </div>
-                </div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-gray-100">
+                <motion.div 
+                  initial={{ width: '50%' }}
+                  animate={{ width: signupStep === 1 ? '50%' : '100%' }}
+                  className="h-full bg-[#FF2E2E]"
+                />
               </div>
 
-              <div className="flex items-center gap-4 p-5 bg-[#F7F7F7] rounded-2xl border border-transparent group cursor-pointer" onClick={() => setSignupForm(prev => ({ ...prev, acceptTerms: !prev.acceptTerms }))}>
-                <div 
-                  className={`w-7 h-7 rounded-lg border-2 transition-all flex items-center justify-center shrink-0 ${signupForm.acceptTerms ? 'bg-[#FF2E2E] border-[#FF2E2E] shadow-lg shadow-[#FF2E2E]/20' : 'bg-white border-gray-300 group-hover:border-[#FF2E2E]'}`}
-                >
-                  {signupForm.acceptTerms && <CheckCircle className="w-4 h-4 text-white" />}
-                </div>
-                <p className="text-xs text-gray-500 font-bold leading-tight select-none">
-                  I accept the <span className="text-gray-900 underline decoration-[#FF2E2E]/40 decoration-2">Terms of Service</span>
-                </p>
-              </div>
+              <AnimatePresence mode="wait">
+                {signupStep === 1 ? (
+                  <motion.div 
+                    key="step1"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Full Name</label>
+                      <div className="relative group">
+                        <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
+                        <input 
+                          type="text" 
+                          value={signupForm.fullName}
+                          onChange={(e) => setSignupForm(prev => ({ ...prev, fullName: e.target.value }))}
+                          placeholder="John Doe" 
+                          className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
+                        />
+                      </div>
+                    </div>
 
-              <button 
-                disabled={!signupForm.acceptTerms || !signupForm.email || !signupForm.password}
-                onClick={handleSignup}
-                className={`w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 text-sm ${signupForm.acceptTerms && signupForm.email && signupForm.password ? 'bg-[#FF2E2E] text-white hover:bg-[#D11A1A] shadow-[#FF2E2E]/20' : 'bg-[#F2F2F2] text-[#C1C1C1] cursor-not-allowed border-none'}`}
-              >
-                Create My Account
-              </button>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Phone Number</label>
+                      <div className="relative group">
+                        <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
+                        <input 
+                          type="tel" 
+                          value={signupForm.phone}
+                          onChange={(e) => setSignupForm(prev => ({ ...prev, phone: e.target.value }))}
+                          placeholder="+1 234 567 890" 
+                          className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
+                        />
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => setSignupStep(2)}
+                      disabled={!signupForm.fullName || !signupForm.phone}
+                      className={`w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 text-sm flex items-center justify-center gap-2 ${signupForm.fullName && signupForm.phone ? 'bg-black text-white hover:bg-gray-800' : 'bg-[#F2F2F2] text-[#C1C1C1] cursor-not-allowed border-none'}`}
+                    >
+                      Next Step <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.div 
+                    key="step2"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Email Address</label>
+                      <div className="relative group">
+                        <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
+                        <input 
+                          type="email" 
+                          value={signupForm.email}
+                          onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="email@example.com" 
+                          className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Secure Password</label>
+                      <div className="relative group">
+                        <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#FF2E2E] transition-colors" />
+                        <input 
+                          type="password" 
+                          value={signupForm.password}
+                          onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))}
+                          placeholder="••••••••" 
+                          className="w-full pl-14 pr-6 py-5 bg-[#F7F7F7] border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-[#FF2E2E]/50 focus:ring-4 focus:ring-[#FF2E2E]/5 font-bold text-lg transition-all placeholder:text-gray-400 text-black" 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 p-5 bg-[#F7F7F7] rounded-2xl border border-transparent group cursor-pointer" onClick={() => setSignupForm(prev => ({ ...prev, acceptTerms: !prev.acceptTerms }))}>
+                      <div 
+                        className={`w-7 h-7 rounded-lg border-2 transition-all flex items-center justify-center shrink-0 ${signupForm.acceptTerms ? 'bg-[#FF2E2E] border-[#FF2E2E] shadow-lg shadow-[#FF2E2E]/20' : 'bg-white border-gray-300 group-hover:border-[#FF2E2E]'}`}
+                      >
+                        {signupForm.acceptTerms && <CheckCircle className="w-4 h-4 text-white" />}
+                      </div>
+                      <p className="text-xs text-gray-500 font-bold leading-tight select-none">
+                        I accept the <span className="text-gray-900 underline decoration-[#FF2E2E]/40 decoration-2">Terms of Service</span>
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => setSignupStep(1)}
+                        className="flex-1 py-6 rounded-2xl font-black uppercase tracking-[0.2em] transition-all bg-[#F2F2F2] text-gray-500 hover:bg-gray-200 active:scale-95 text-sm"
+                      >
+                        Back
+                      </button>
+                      <button 
+                        disabled={!signupForm.acceptTerms || !signupForm.email || !signupForm.password}
+                        onClick={handleSignup}
+                        className={`flex-[2] py-6 rounded-2xl font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 text-sm ${signupForm.acceptTerms && signupForm.email && signupForm.password ? 'bg-[#FF2E2E] text-white hover:bg-[#D11A1A] shadow-[#FF2E2E]/20' : 'bg-[#F2F2F2] text-[#C1C1C1] cursor-not-allowed border-none'}`}
+                      >
+                        Create Account
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="pt-4 text-center">
                 <p className="text-xs text-gray-500 font-black uppercase tracking-widest">
-                  Already a member? <span className="text-[#FF2E2E] underline ml-1 cursor-pointer hover:text-[#D11A1A] transition-colors" onClick={() => setView('login')}>Sign In</span>
+                  Already a member? <span className="text-[#FF2E2E] underline ml-1 cursor-pointer hover:text-[#D11A1A] transition-colors" onClick={() => {
+                    setView('login');
+                    setSignupStep(1);
+                  }}>Sign In</span>
                 </p>
               </div>
             </div>
@@ -3300,7 +3538,7 @@ export default function App() {
         )}
 
       {/* Bottom Navigation Menu Bar */}
-      {view !== 'signup' && view !== 'login' && (
+      {view !== 'signup' && view !== 'login' && !viewingDocument && (
         <nav className="flex items-center justify-around px-2 py-2 bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] shrink-0 z-[100] sticky bottom-0 pb-safe-offset-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }} id="bottom-menu">
           <button 
             className="flex flex-col items-center justify-center p-1 text-black hover:bg-gray-100 rounded-lg transition-colors focus:outline-none min-w-[50px]"

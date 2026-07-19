@@ -117,46 +117,78 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ feature }) => {
   const data = guideData[feature];
 
   return (
-    <div className="w-full bg-slate-50 border border-slate-100 rounded-xl overflow-hidden shadow-sm mb-4">
+    <div className="relative inline-block mb-4">
       <button 
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-slate-50/50 transition-colors focus:outline-none"
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all focus:outline-none shadow-sm border ${
+          isOpen 
+            ? 'bg-[#FF2E2E] border-[#FF2E2E] text-white' 
+            : 'bg-white border-slate-200 text-slate-600 hover:border-[#FF2E2E] hover:text-[#FF2E2E]'
+        }`}
       >
-        <div className="flex items-center gap-2 text-slate-700">
-          <HelpCircle className="w-4 h-4 text-[#FF2E2E]" />
-          <span className="text-xs font-bold uppercase tracking-wider">How to use this feature</span>
-        </div>
-        <span className="text-xs text-slate-400 font-medium">
-          {isOpen ? "Hide Guide" : "Show Guide"}
+        <HelpCircle className={`w-4 h-4 ${isOpen ? 'text-white' : 'text-[#FF2E2E]'}`} />
+        <span className="text-[10px] font-bold uppercase tracking-wider">
+          {isOpen ? "Close Guide" : "Guide"}
         </span>
       </button>
       
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="border-t border-slate-100 overflow-hidden"
-          >
-            <div className="p-4 space-y-3 bg-slate-50 text-left">
-              <div>
-                <h4 className="text-sm font-bold text-slate-800">{data.title}</h4>
-                <p className="text-xs text-slate-500 mt-0.5">{data.description}</p>
-              </div>
-              <div className="space-y-2 pt-1">
-                {data.steps.map((step, idx) => (
-                  <div key={idx} className="flex gap-2.5 items-start">
-                    <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                      {idx + 1}
-                    </span>
-                    <p className="text-xs text-slate-600 leading-relaxed font-medium">{step}</p>
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[1000]"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              className="absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[1001]"
+            >
+              <div className="p-5 space-y-4 text-left">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#FF2E2E]/10 flex items-center justify-center">
+                      <HelpCircle className="w-4 h-4 text-[#FF2E2E]" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800">{data.title}</h4>
+                      <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest leading-none">Feature Guide</p>
+                    </div>
                   </div>
-                ))}
+                  <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-slate-100 rounded-full transition-colors">
+                    <HelpCircle className="w-4 h-4 text-slate-400 rotate-45" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  {data.description}
+                </p>
+
+                <div className="space-y-3">
+                  {data.steps.map((step, idx) => (
+                    <div key={idx} className="flex gap-3 items-start group">
+                      <span className="w-5 h-5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-[#FF2E2E] group-hover:text-white transition-colors">
+                        {idx + 1}
+                      </span>
+                      <p className="text-xs text-slate-600 leading-relaxed font-medium pt-0.5">{step}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <button 
+                  onClick={() => setIsOpen(false)}
+                  className="w-full py-3 bg-slate-900 text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200"
+                >
+                  Got it, Thanks
+                </button>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
